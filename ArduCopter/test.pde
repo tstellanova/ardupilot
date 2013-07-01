@@ -8,6 +8,7 @@
 static int8_t   test_baro(uint8_t argc,                 const Menu::arg *argv);
 #endif
 static int8_t   test_battery(uint8_t argc,              const Menu::arg *argv);
+static int8_t   test_bounce(uint8_t argc,               const Menu::arg *argv);
 static int8_t   test_compass(uint8_t argc,              const Menu::arg *argv);
 static int8_t   test_eedump(uint8_t argc,               const Menu::arg *argv);
 static int8_t   test_gps(uint8_t argc,                  const Menu::arg *argv);
@@ -51,6 +52,7 @@ const struct Menu::command test_menu_commands[] PROGMEM = {
     {"baro",                test_baro},
 #endif
     {"battery",             test_battery},
+    {"bounce",              test_bounce},
     {"compass",             test_compass},
     {"eedump",              test_eedump},
     {"gps",                 test_gps},
@@ -334,6 +336,44 @@ test_logging(uint8_t argc, const Menu::arg *argv)
     return 0;
 }
 
+
+/*
+ *  test the response of motors to bouncing stimuli
+ */
+static int8_t
+test_bounce(uint8_t argc, const Menu::arg *argv)
+{
+    cliSerial->println_P(PSTR("Testing bounce behavior"));
+
+    if(g.battery_monitoring != BATT_MONITOR_VOLTAGE_AND_CURRENT) {
+        cliSerial->println_P(PSTR("Current monitoring disabled..."));
+        return(0);
+    }
+    
+    // ensure all values have been sent to motors
+    cliSerial->println_P(PSTR("setting motor params..."));
+    motors.set_update_rate(g.rc_speed);
+    motors.set_frame_orientation(g.frame_orientation);
+    motors.set_min_throttle(g.throttle_min);
+    motors.set_mid_throttle(g.throttle_mid);
+    motors.set_max_throttle(g.throttle_max);
+    
+      // enable motors
+    init_rc_out();
+    read_radio();//TODO is this really necessary? wtf?
+    
+
+    
+    if(cliSerial->available() > 0) {
+        return(0);   
+    }
+    motors.bounce_test((AP_InertialSensor&)ins);
+
+    
+    return(0);
+    
+}
+
 static int8_t
 test_motors(uint8_t argc, const Menu::arg *argv)
 {
@@ -360,11 +400,13 @@ test_motors(uint8_t argc, const Menu::arg *argv)
         read_radio();
         motors.output_test();
         if(cliSerial->available() > 0) {
-            g.esc_calibrate.set_and_save(0);
+            // g.esc_calibrate.set_and_save(0);
             return(0);
         }
     }
 }
+
+
 
 static int8_t
 test_optflow(uint8_t argc, const Menu::arg *argv)
