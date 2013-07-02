@@ -11,6 +11,7 @@ static int8_t   test_battery(uint8_t argc,              const Menu::arg *argv);
 static int8_t   test_compass(uint8_t argc,              const Menu::arg *argv);
 static int8_t   test_eedump(uint8_t argc,               const Menu::arg *argv);
 static int8_t   test_gps(uint8_t argc,                  const Menu::arg *argv);
+static int8_t   test_hop(uint8_t argc,                  const Menu::arg *argv);
 static int8_t   test_ins(uint8_t argc,                  const Menu::arg *argv);
 static int8_t   test_logging(uint8_t argc,              const Menu::arg *argv);
 static int8_t   test_motors(uint8_t argc,               const Menu::arg *argv);
@@ -54,6 +55,7 @@ const struct Menu::command test_menu_commands[] PROGMEM = {
     {"compass",             test_compass},
     {"eedump",              test_eedump},
     {"gps",                 test_gps},
+    {"hop",                 test_hop},
     {"ins",                 test_ins},
     {"logging",             test_logging},
     {"motors",              test_motors},
@@ -288,6 +290,79 @@ test_gps(uint8_t argc, const Menu::arg *argv)
     }
     return 0;
 }
+
+
+#define ABORT_ON_KEYPRESS() if (cliSerial->available() > 0) { g.esc_calibrate.set_and_save(0); return(0); }
+static int8_t
+test_hop(uint8_t argc, const Menu::arg *argv)
+{
+    Vector3f accel;
+    int16_t currentThrottle = 0;
+    int16_t stepSize = (g.throttle_mid - g.throttle_min) / 100;
+
+    cliSerial->printf_P(PSTR("WARNING: Tether copter and stand clear.\n"
+                             "Attach props and connect battery for this test.\n"
+                             "Remember to disconnect battery after this test.\n"
+                             "Any key to exit.\n"));
+    
+    // ensure all values have been sent to motors
+    motors.set_update_rate(g.rc_speed);
+    motors.set_frame_orientation(g.frame_orientation);
+    motors.set_min_throttle(g.throttle_min);
+    motors.set_mid_throttle(g.throttle_mid);
+    motors.set_max_throttle(g.throttle_max);
+    
+    // make sure we can collect INS data
+    ins.init(AP_InertialSensor::COLD_START,
+			 AP_InertialSensor::RATE_100HZ,
+			 flash_leds);
+    ins.init_accel(flash_leds);
+    cliSerial->println_P(PSTR("...done"));
+    
+    ABORT_ON_KEYPRESS();
+
+    // enable motors
+    init_rc_out();
+    delay(1000);
+    read_radio();
+    ABORT_ON_KEYPRESS();
+    
+    currentThrottle = g.throttle_min;
+    
+    for (currentThrottle = g.throttle_min; currentThrottle < g.throttle_max; currentThrottle +=stepSize ) {
+        cliSerial->printf_P(PSTR("set throttle: %d \n"),currentThrottle);
+        motors.output_equal(currentThrottle);
+        if (cliSerial->available() > 0) {
+            break;
+        }
+        ins.update();
+        accel = ins.get_accel();
+        accel.normalize();
+        cliSerial->printf_P(PSTR("a: %7.4f %7.4f %7.4f \n"),currentThrottle,accel.x,accel.y,accel.z);
+
+        float magZ = accel.z;
+        if (magZ < 0) magZ *= -1;
+        
+        if (magZ < 0.95) {
+            cliSerial->printf_P(PSTR("Unstable Z: aborting! \n"));
+            break;
+        }
+        else {
+            //still upright
+            if (magZ > 1.1) {
+                //heading upward!
+                cliSerial->printf_P(PSTR("Throttle: %d Acc: %7.4f \n"),currentThrottle,accel.z);
+            }
+        }
+
+    }
+    
+    
+    motors.output_min();
+    return 0;
+
+}
+
 
 static int8_t
 test_ins(uint8_t argc, const Menu::arg *argv)

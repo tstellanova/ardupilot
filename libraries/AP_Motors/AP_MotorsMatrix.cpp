@@ -78,16 +78,24 @@ void AP_MotorsMatrix::enable()
 // output_min - sends minimum values out to the motors
 void AP_MotorsMatrix::output_min()
 {
-    int8_t i;
+    //send minimum value to each motor
+    output_equal(_rc_throttle->radio_min);
 
-    // fill the motor_out[] array for HIL use and send minimum value to each motor
+}
+
+void AP_MotorsMatrix::output_equal(int16_t level)
+{
+    int8_t i;
+    
+    // fill the motor_out[] array for HIL use and send value to each motor
     for( i=0; i<AP_MOTORS_MAX_NUM_MOTORS; i++ ) {
         if( motor_enabled[i] ) {
-            motor_out[i] = _rc_throttle->radio_min;
+            motor_out[i] = level;
             hal.rcout->write(_motor_to_channel_map[i], motor_out[i]);
         }
     }
 }
+
 
 #ifdef AP_MOTORS_MATRIX_SCALING_STABILITY_PATCH
 // output_armed - sends commands to the motors

@@ -45,6 +45,9 @@ public:
     // motor test
     virtual void        output_test();
 
+    // output an equal throttle to all motors
+    virtual void        output_equal(int16_t level);
+    
     // output_min - sends minimum values out to the motors
     virtual void        output_min();
 
