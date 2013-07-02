@@ -313,7 +313,7 @@ test_ins(uint8_t argc, const Menu::arg *argv)
 
         float test = accel.length() / GRAVITY_MSS;
 
-        cliSerial->printf_P(PSTR("a %7.4f %7.4f %7.4f g %7.4f %7.4f %7.4f t %74f | %7.4f\n"),
+        cliSerial->printf_P(PSTR("a %7.4f %7.4f %7.4f g %7.4f %7.4f %7.4f t %7.4f \n"),
             accel.x, accel.y, accel.z,
             gyro.x, gyro.y, gyro.z,
             test);
