@@ -162,12 +162,12 @@ test_battery(uint8_t argc, const Menu::arg *argv)
 #define ABORT_ON_KEYPRESS()     if(cliSerial->available() > 0) { g.esc_calibrate.set_and_save(0); return(0); }
 
 static int8_t
-test_bouncer(uint8_t argc, const Menu::arg *argv)
+test_bounce(uint8_t argc, const Menu::arg *argv)
 {
     cliSerial->printf_P(PSTR(
-                        "Ensure that the bottom of the copter is securely attached to a horizontal surface with a short leash (~6cm):\n"
-                        "- The leash must be long enough to allow the copter to hover about 3in / 8cm above the surface.\n"
-                        "- The leash must be short enough to prevent a prop ground strike when the frame tilts from side to side.\n"
+                        "Ensure that the bottom of the copter is securely attached to a horizontal surface with a short leash:\n"
+                        "- The leash must be long enough to allow the copter to hover about 8cm above the surface.\n"
+                        "- The leash must be short enough to prevent a prop strike when the frame tilts from side to side.\n"
                         "Attach props and connect battery for this test.\n"
                         "Motors will spin up individually and then altogether in a hover.  Stay clear of copter.\n"
                         "TODO for demo video.\n"
@@ -182,15 +182,20 @@ test_bouncer(uint8_t argc, const Menu::arg *argv)
     motors.set_max_throttle(g.throttle_max);
 
     //countdown
-    for (int i = 10; i > 0; i--)
+    for (int i = 9; i > 0; i--)
     {
-        cliSerial->printf_P(PSTR("%d..."),i);
+        cliSerial->printf_P(PSTR("%d...\n"),i);
         delay(10);
         ABORT_ON_KEYPRESS();
     }
     
     // enable motors
     init_rc_out();
+    
+    // shut down all motors and wait for props to stop spinning
+    motors.output_min();
+    delay(10);
+    ABORT_ON_KEYPRESS();
 
     read_radio();
     ABORT_ON_KEYPRESS();
@@ -203,8 +208,10 @@ test_bouncer(uint8_t argc, const Menu::arg *argv)
 
     ins.init_accel(NULL);  
     ABORT_ON_KEYPRESS();
-    
+    cliSerial->printf_P(PSTR("...done\n"));
+
     //TODO conduct test
+    motors.bounce_test(ins);
 
     return 0;
 

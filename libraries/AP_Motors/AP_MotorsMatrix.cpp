@@ -492,63 +492,87 @@ void AP_MotorsMatrix::display_position_reading(AP_InertialSensor &ins)
 }
 
 
+static void display_ins_readings(Vector3f accel, Vector3f gyro)
+{
+    hal.console->printf_P(
+        PSTR("a %7.6f %7.6f %7.6f g %7.6f %7.6f %7.6f \n"),
+        accel.x, accel.y, accel.z,
+        gyro.x, gyro.y, gyro.z);
+}
+    
+#define NUM_INS_READINGS    4
+static void collect_average_readings(AP_InertialSensor &ins, Vector3f &accel, Vector3f &gyro)
+{
+    Vector3f accels, gyros;
+    
+    for (int i = 0; i < NUM_INS_READINGS; i++) {
+        ins.update();
+        Vector3f curAccel = ins.get_accel();
+        Vector3f curGyro = ins.get_gyro();
+        
+        accels += curAccel;
+        gyros += curGyro;
+    }
+    
+    accels /= ((float)NUM_INS_READINGS);
+    accels.normalize();
+
+    gyros /= ((float)NUM_INS_READINGS);
+    gyros.normalize();
+    
+    accel = accels;
+    gyro = gyros;
+}
+
 /*
 Measure _hover_out
 */
 void AP_MotorsMatrix::bounce_test(AP_InertialSensor &ins)
 {
-     uint8_t min_order, max_order;
-    uint8_t i,j;
+    uint8_t i;
     int16_t minThrottleVal = _rc_throttle->radio_min + _min_throttle;
     int16_t bounceThrottleVal = (_hover_out + minThrottleVal) / 2;
+    Vector3f oldAccel, oldGyro, newAccel, newGyro;
+    float accelAngle, gyroAngle;
+    
+    // tilt each motor in sequence
 
-    // find min and max orders
-    min_order = _test_order[0];
-    max_order = _test_order[0];
-    for(i=1; i<AP_MOTORS_MAX_NUM_MOTORS; i++ ) {
-        if( _test_order[i] < min_order )
-            min_order = _test_order[i];
-        if( _test_order[i] > max_order )
-            max_order = _test_order[i];
-    }  
-    
-    // shut down all motors and wait for props to stop spinning
-    output_min();    
-    hal.scheduler->delay(4000);
-    hal.console->printf_P( PSTR("initialize INS..."));
-    
-    ins.init(AP_InertialSensor::COLD_START, 
-		 AP_InertialSensor::RATE_100HZ,
-		 NULL);
-    ins.init_accel(NULL);    
-    
-    // loop through all the possible orders spinning any motors that match that description
-    for( i=min_order; i<=max_order; i++ ) {
-        for( j=0; j<AP_MOTORS_MAX_NUM_MOTORS; j++ ) {
-            if( motor_enabled[j] && _test_order[j] == i ) {
-                uint8_t motor_id = _motor_to_channel_map[j];
-                //measure pitch before motor is activated
-                display_position_reading(ins);
-                
-                // turn on this motor and wait 1/3 second for warmup
-                hal.rcout->write(motor_id, minThrottleVal);
-                hal.scheduler->delay(300);
-                
-                // turn on this motor to "low hover" throttle and wait
-                hal.rcout->write(motor_id, bounceThrottleVal);
-                hal.scheduler->delay(300);
-                               
-                // _pitch_factor[j] = foo; 
-                // _roll_factor[j] = foo;
-                // measure pitch while motor is activated
-                display_position_reading(ins);
+    for (i = 0; i < AP_MOTORS_MAX_NUM_MOTORS;i++) {
+        if (motor_enabled[i]) {
+            uint8_t motor_id = _motor_to_channel_map[i];
+            
+            collect_average_readings(ins,oldAccel,oldGyro);
+            hal.console->printf_P(PSTR("Motor %d:\n"),motor_id);
+            display_ins_readings(oldAccel,oldGyro);
+            
+            // turn on this motor to "low hover" throttle and wait
+            hal.rcout->write(motor_id, bounceThrottleVal);
+            hal.scheduler->delay(3000);
+            
+            collect_average_readings(ins,newAccel,newGyro);
+            display_ins_readings(newAccel,newGyro);
 
-                // turn off this motor
-                hal.rcout->write(motor_id, _rc_throttle->radio_min);
-                hal.scheduler->delay(2000);
-            }
+            accelAngle = newAccel.angle(oldAccel);
+            gyroAngle = newGyro.angle(oldGyro);
+            
+            hal.console->printf_P(
+                                  PSTR("ANGLES: a %7.4f g %7.4f \n"),
+                                  accelAngle,
+                                  gyroAngle
+                                  );
+            
+            //shutdown motor and wait for spin-down
+            hal.rcout->write(motor_id, _rc_throttle->radio_min);
+            hal.scheduler->delay(3000);
+            
+            //TODO
+            // _pitch_factor[j] = foo;
+            // _roll_factor[j] = foo;
+
         }
     }
+    
+    
     
 }
 
