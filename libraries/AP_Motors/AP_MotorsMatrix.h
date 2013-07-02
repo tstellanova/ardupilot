@@ -19,9 +19,6 @@
 
 #define AP_MOTORS_MATRIX_YAW_LOWER_LIMIT_PWM    200
 
-//forward declaration
-class AP_InertialSensor;
-
 /// @class      AP_MotorsMatrix
 class AP_MotorsMatrix : public AP_Motors {
 public:
@@ -47,9 +44,6 @@ public:
 
     // motor test
     virtual void        output_test();
-    
-    // bounce test
-    virtual void        bounce_test(AP_InertialSensor &ins);
 
     // output_min - sends minimum values out to the motors
     virtual void        output_min();
@@ -75,9 +69,6 @@ protected:
 
     // add_motor using raw roll, pitch, throttle and yaw factors
     void                add_motor_raw(int8_t motor_num, float roll_fac, float pitch_fac, float yaw_fac, uint8_t testing_order);
-
-    //check the pitch etc
-    void display_position_reading(AP_InertialSensor &ins);
 
     int8_t              _num_motors; // not a very useful variable as you really need to check the motor_enabled array to see which motors are enabled
     float               _roll_factor[AP_MOTORS_MAX_NUM_MOTORS]; // each motors contribution to roll

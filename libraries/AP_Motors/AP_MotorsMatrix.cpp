@@ -10,7 +10,6 @@
  */
 #include <AP_HAL.h>
 #include "AP_MotorsMatrix.h"
-#include "AP_InertialSensor.h"
 
 extern const AP_HAL::HAL& hal;
 
@@ -450,108 +449,6 @@ void AP_MotorsMatrix::output_disarmed()
     // Send minimum values to all motors
     output_min();
 }
-
-void AP_MotorsMatrix::display_position_reading(AP_InertialSensor &ins)
-{
-    Vector3f accels = ins.get_accel();
-    Vector3f gyros = ins.get_gyro();
-    
-        // display results
-    hal.console->printf_P(
-            PSTR("\nAccel  X:%10.8f \t Y:%10.8f \t Z:%10.8f\n"),
-                    accels.x,
-                    accels.y,
-                    accels.z);
-
-    hal.console->printf_P(
-            PSTR("Gyros X:%10.8f \t Y:%10.8f \t Z:%10.8f\n"),
-                    gyros.x,
-                    gyros.y,
-                    gyros.z);
-                    
-    // Vector3f accel_offsets = ins.get_accel_offsets();
-    // Vector3f accel_scale = ins.get_accel_scale();
-    // Vector3f gyro_offsets = ins.get_gyro_offsets();
-    // 
-    // // display results
-    // hal.console->printf_P(
-    //         PSTR("\nAccel Offsets X:%10.8f \t Y:%10.8f \t Z:%10.8f\n"),
-    //                 accel_offsets.x,
-    //                 accel_offsets.y,
-    //                 accel_offsets.z);
-    // hal.console->printf_P(
-    //         PSTR("Accel Scale X:%10.8f \t Y:%10.8f \t Z:%10.8f\n"),
-    //                 accel_scale.x,
-    //                 accel_scale.y,
-    //                 accel_scale.z);
-    // hal.console->printf_P(
-    //         PSTR("Gyro Offsets X:%10.8f \t Y:%10.8f \t Z:%10.8f\n"),
-    //                 gyro_offsets.x,
-    //                 gyro_offsets.y,
-    //                 gyro_offsets.z);
-}
-
-
-/*
-Measure _hover_out
-*/
-void AP_MotorsMatrix::bounce_test(AP_InertialSensor &ins)
-{
-     uint8_t min_order, max_order;
-    uint8_t i,j;
-    int16_t minThrottleVal = _rc_throttle->radio_min + _min_throttle;
-    int16_t bounceThrottleVal = (_hover_out + minThrottleVal) / 2;
-
-    // find min and max orders
-    min_order = _test_order[0];
-    max_order = _test_order[0];
-    for(i=1; i<AP_MOTORS_MAX_NUM_MOTORS; i++ ) {
-        if( _test_order[i] < min_order )
-            min_order = _test_order[i];
-        if( _test_order[i] > max_order )
-            max_order = _test_order[i];
-    }  
-    
-    // shut down all motors and wait for props to stop spinning
-    output_min();    
-    hal.scheduler->delay(4000);
-    hal.console->printf_P( PSTR("initialize INS..."));
-    
-    ins.init(AP_InertialSensor::COLD_START, 
-		 AP_InertialSensor::RATE_100HZ,
-		 NULL);
-    ins.init_accel(NULL);    
-    
-    // loop through all the possible orders spinning any motors that match that description
-    for( i=min_order; i<=max_order; i++ ) {
-        for( j=0; j<AP_MOTORS_MAX_NUM_MOTORS; j++ ) {
-            if( motor_enabled[j] && _test_order[j] == i ) {
-                uint8_t motor_id = _motor_to_channel_map[j];
-                //measure pitch before motor is activated
-                display_position_reading(ins);
-                
-                // turn on this motor and wait 1/3 second for warmup
-                hal.rcout->write(motor_id, minThrottleVal);
-                hal.scheduler->delay(300);
-                
-                // turn on this motor to "low hover" throttle and wait
-                hal.rcout->write(motor_id, bounceThrottleVal);
-                hal.scheduler->delay(300);
-                               
-                // _pitch_factor[j] = foo; 
-                // _roll_factor[j] = foo;
-                // measure pitch while motor is activated
-                display_position_reading(ins);
-
-                // turn off this motor
-                hal.rcout->write(motor_id, _rc_throttle->radio_min);
-                hal.scheduler->delay(2000);
-            }
-        }
-    }
-    
-}
-
 
 // output_disarmed - sends commands to the motors
 void AP_MotorsMatrix::output_test()
