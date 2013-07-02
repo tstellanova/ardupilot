@@ -325,36 +325,35 @@ test_hop(uint8_t argc, const Menu::arg *argv)
     init_rc_out();
     delay(1000);
     read_radio();
+    
+    cliSerial->println_P(PSTR("Get Ready!"));
     ABORT_ON_KEYPRESS();
     
     currentThrottle = g.throttle_min;
     
     for (currentThrottle = g.throttle_min; currentThrottle < g.throttle_max; currentThrottle +=stepSize ) {
-        cliSerial->printf_P(PSTR("set throttle: %d \n"),currentThrottle);
+
         motors.output_equal(currentThrottle);
         if (cliSerial->available() > 0) {
             break;
         }
         ins.update();
         accel = ins.get_accel();
-        accel.normalize();
-        cliSerial->printf_P(PSTR("a: %7.4f %7.4f %7.4f \n"),currentThrottle,accel.x,accel.y,accel.z);
+        cliSerial->printf_P(PSTR("Throttle: %d a: %7.4f %7.4f %7.4f \n"),
+                            currentThrottle,accel.x,accel.y,accel.z);
 
-        float magZ = accel.z;
-        if (magZ < 0) magZ *= -1;
-        
-        if (magZ < 0.95) {
-            cliSerial->printf_P(PSTR("Unstable Z: aborting! \n"));
+        float test = accel.length() / GRAVITY_MSS;
+
+        if (test > 1.2) {
+            //possibly we have liftoff!
+            cliSerial->printf_P(PSTR("Liftoff! at %d \n"),currentThrottle);
+            motors.set_mid_throttle(currentThrottle);
             break;
         }
         else {
-            //still upright
-            if (magZ > 1.1) {
-                //heading upward!
-                cliSerial->printf_P(PSTR("Throttle: %d Acc: %7.4f \n"),currentThrottle,accel.z);
-            }
+            delay(100);
         }
-
+        
     }
     
     
