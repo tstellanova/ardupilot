@@ -165,11 +165,11 @@ static int8_t
 test_bounce(uint8_t argc, const Menu::arg *argv)
 {
     cliSerial->printf_P(PSTR(
-                        "Ensure that the bottom of the copter is securely attached to a horizontal surface with a short leash:\n"
-                        "- The leash must be long enough to allow the copter to hover about 8cm above the surface.\n"
+                        "WARNING: Motors will spin individually and then all together in a hover.  Stay clear of copter.\n"
+                        "Ensure that the bottom of the copter is securely attached to a horizontal surface with a short (~8cm) leash:\n"
+                        "- The leash must be long enough to allow the copter to hover above the surface.\n"
                         "- The leash must be short enough to prevent a prop strike when the frame tilts from side to side.\n"
                         "Attach props and connect battery for this test.\n"
-                        "Motors will spin up individually and then altogether in a hover.  Stay clear of copter.\n"
                         "TODO for demo video.\n"
                         "Remember to disconnect battery after this test.\n"
                         "Any key to exit.\n"));

@@ -492,48 +492,52 @@ void AP_MotorsMatrix::display_position_reading(AP_InertialSensor &ins)
 }
 
 
-static void display_ins_readings(Vector3f accel, Vector3f gyro)
-{
+static void display_ins_readings(Vector3f accel)
+{    
+    
     hal.console->printf_P(
-        PSTR("a %7.6f %7.6f %7.6f g %7.6f %7.6f %7.6f \n"),
-        accel.x, accel.y, accel.z,
-        gyro.x, gyro.y, gyro.z);
+        PSTR("a: %7.6f %7.6f %7.6f  \n"),
+        accel.x, accel.y, accel.z );
 }
     
-#define NUM_INS_READINGS    4
-static void collect_average_readings(AP_InertialSensor &ins, Vector3f &accel, Vector3f &gyro)
+#define NUM_INS_READINGS    10
+static void collect_average_readings(AP_InertialSensor &ins, Vector3f &accel)
 {
-    Vector3f accels, gyros;
+    Vector3f accels;
     
     for (int i = 0; i < NUM_INS_READINGS; i++) {
         ins.update();
         Vector3f curAccel = ins.get_accel();
-        Vector3f curGyro = ins.get_gyro();
         
         accels += curAccel;
-        gyros += curGyro;
     }
     
     accels /= ((float)NUM_INS_READINGS);
     accels.normalize();
-
-    gyros /= ((float)NUM_INS_READINGS);
-    gyros.normalize();
     
     accel = accels;
-    gyro = gyros;
 }
+
+
+#define ABORT_ON_KEYPRESS()     if(hal.console->available() > 0) { return; }
 
 /*
 Measure _hover_out
 */
 void AP_MotorsMatrix::bounce_test(AP_InertialSensor &ins)
 {
+    Vector3f unitVector_x(1,0,0);
+    Vector3f unitVector_y(0,1,0);
+    Vector3f unitVector_z(0,0,1);
+
     uint8_t i;
     int16_t minThrottleVal = _rc_throttle->radio_min + _min_throttle;
     int16_t bounceThrottleVal = (_hover_out + minThrottleVal) / 2;
-    Vector3f oldAccel, oldGyro, newAccel, newGyro;
-    float accelAngle, gyroAngle;
+    Vector3f oldAccel, newAccel;
+    Vector3f contributions[AP_MOTORS_MAX_NUM_MOTORS];
+    Vector3f contribution;
+    
+    float accelAngle;
     
     // tilt each motor in sequence
 
@@ -541,25 +545,30 @@ void AP_MotorsMatrix::bounce_test(AP_InertialSensor &ins)
         if (motor_enabled[i]) {
             uint8_t motor_id = _motor_to_channel_map[i];
             
-            collect_average_readings(ins,oldAccel,oldGyro);
-            hal.console->printf_P(PSTR("Motor %d:\n"),motor_id);
-            display_ins_readings(oldAccel,oldGyro);
+            hal.console->printf_P(PSTR("Motor %d: \n"),motor_id);
+            ABORT_ON_KEYPRESS();
+            collect_average_readings(ins,oldAccel);
+
+            display_ins_readings(oldAccel);
             
             // turn on this motor to "low hover" throttle and wait
             hal.rcout->write(motor_id, bounceThrottleVal);
             hal.scheduler->delay(3000);
             
-            collect_average_readings(ins,newAccel,newGyro);
-            display_ins_readings(newAccel,newGyro);
+            ABORT_ON_KEYPRESS();
+            collect_average_readings(ins,newAccel);
+            display_ins_readings(newAccel);
 
-            accelAngle = newAccel.angle(oldAccel);
-            gyroAngle = newGyro.angle(oldGyro);
-            
+
+            contribution = newAccel - oldAccel;
+//            contribution.normalize();
+            contributions[i] = contribution;
+
             hal.console->printf_P(
-                                  PSTR("ANGLES: a %7.4f g %7.4f \n"),
-                                  accelAngle,
-                                  gyroAngle
+                                  PSTR("d: %7.6f %7.6f %7.6f  \n"),
+                                  contribution.x, contribution.y, contribution.z
                                   );
+                                  
             
             //shutdown motor and wait for spin-down
             hal.rcout->write(motor_id, _rc_throttle->radio_min);
