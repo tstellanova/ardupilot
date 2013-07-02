@@ -8,6 +8,7 @@
 static int8_t   test_baro(uint8_t argc,                 const Menu::arg *argv);
 #endif
 static int8_t   test_battery(uint8_t argc,              const Menu::arg *argv);
+static int8_t   test_bounce(uint8_t argc,               const Menu::arg *argv);
 static int8_t   test_compass(uint8_t argc,              const Menu::arg *argv);
 static int8_t   test_eedump(uint8_t argc,               const Menu::arg *argv);
 static int8_t   test_gps(uint8_t argc,                  const Menu::arg *argv);
@@ -51,6 +52,7 @@ const struct Menu::command test_menu_commands[] PROGMEM = {
     {"baro",                test_baro},
 #endif
     {"battery",             test_battery},
+    {"bounce",              test_bounce},
     {"compass",             test_compass},
     {"eedump",              test_eedump},
     {"gps",                 test_gps},
@@ -154,6 +156,59 @@ test_battery(uint8_t argc, const Menu::arg *argv)
     }
     motors.armed(false);
     return (0);
+}
+
+
+#define ABORT_ON_KEYPRESS()     if(cliSerial->available() > 0) { g.esc_calibrate.set_and_save(0); return(0); }
+
+static int8_t
+test_bouncer(uint8_t argc, const Menu::arg *argv)
+{
+    cliSerial->printf_P(PSTR(
+                        "Ensure that the bottom of the copter is securely attached to a horizontal surface with a short leash (~6cm):\n"
+                        "- The leash must be long enough to allow the copter to hover about 3in / 8cm above the surface.\n"
+                        "- The leash must be short enough to prevent a prop ground strike when the frame tilts from side to side.\n"
+                        "Attach props and connect battery for this test.\n"
+                        "Motors will spin up individually and then altogether in a hover.  Stay clear of copter.\n"
+                        "TODO for demo video.\n"
+                        "Remember to disconnect battery after this test.\n"
+                        "Any key to exit.\n"));
+
+    // ensure all values have been sent to motors
+    motors.set_update_rate(g.rc_speed);
+    motors.set_frame_orientation(g.frame_orientation);
+    motors.set_min_throttle(g.throttle_min);
+    motors.set_mid_throttle(g.throttle_mid);
+    motors.set_max_throttle(g.throttle_max);
+
+    //countdown
+    for (int i = 10; i > 0; i--)
+    {
+        cliSerial->printf_P(PSTR("%d..."),i);
+        delay(10);
+        ABORT_ON_KEYPRESS();
+    }
+    
+    // enable motors
+    init_rc_out();
+
+    read_radio();
+    ABORT_ON_KEYPRESS();
+
+
+    ins.init(AP_InertialSensor::COLD_START, 
+		 AP_InertialSensor::RATE_100HZ,
+		 NULL);
+    ABORT_ON_KEYPRESS();
+
+    ins.init_accel(NULL);  
+    ABORT_ON_KEYPRESS();
+    
+    //TODO conduct test
+
+    return 0;
+
+
 }
 
 static int8_t
